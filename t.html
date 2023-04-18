@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script type="importmap">
+		{
+			"imports": {
+				"three": "/libs/three/build/three.module.js"
+			}
+		}
+	</script>
+    <script type="module">
+        // import * as THREE from "/libs/three/build/three.module.js"
+        import * as THREE from "three"
+        import { OrbitControls } from "/libs/three/examples/jsm/controls/OrbitControls.js"
+        import { CSS3DRenderer } from "/libs/three/examples/jsm/renderers/CSS3DRenderer.js"
+
+
+
+
+        // 场景
+        const scene = new THREE.Scene();
+        // 透视相机
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        /**
+        *  透视相机四个参数 ：视野角度
+        *      长宽比
+        *      近截面
+        *      远截面
+        **/
+
+        // 渲染器
+        const renderer = new THREE.WebGLRenderer();
+        // 渲染大小
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        // 几何体 --------
+        // const geometry = new THREE.BoxGeometry();
+        // 球体 ----
+        // SphereGeometry(radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength)
+        // - radius：球体半径
+        // - widthSegments,
+        // - heightSegments：水平方向和垂直方向上分段数。widthSegments最小值为3，默认值为8。heightSegments最小值为2，默认值为6。
+        // - phiStart：水平方向上的起始角,默认值0
+        // - phiLenght：水平方向上球体曲面覆盖的弧度，默认Math.PI * 2
+        // - thetaStart : 垂直方向上的起始角， 默认0
+        // - thetaLength: 垂直方向是球体曲面覆盖的弧度，默认值为Math.PI
+        const geometry = new THREE.SphereGeometry(500, 60, 40)
+        // -------------
+
+        // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        // const cube = new THREE.Mesh(geometry, material);
+        // scene.add(cube);
+
+        // 方法二、
+        let demo = new THREE.TextureLoader().load('/static/qj.jpg')
+        let material = new THREE.MeshBasicMaterial({
+            map: demo, // 此处使用 demo 的参数 图片更为清晰
+            transparent: false,
+        })
+        mesh = new THREE.Mesh(geometry, material)
+        // 几何体  材料（渲染图）
+        scene.add(mesh)
+
+
+        const initcontrols = () => {
+	    controls = new OrbitControls(camera, renderer.domElement)
+	    console.log(controls,'--controls')
+	      //是否可以缩放
+	      controls.enableZoom = false
+	      //是否自动旋转
+	      controls.autoRotate = autoRotate // 动态控制是否制动旋转、
+	      // 使动画循环使用时阻尼或自转 意思是否有惯性
+	      controls.enableDamping = true;
+	  }
+
+
+
+        /**
+             默认情况下，当我们调用scene.add()的时候，物体将会被添加到(0,0,0)坐标。但将使得摄像机和立方体彼此在一起。为了防止这种情况的发生，我们只需要将摄像机稍微向外移动一些即可。
+        */
+        camera.position.z = 5;
+
+        const animate = function () {
+            requestAnimationFrame(animate);
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            renderer.render(scene, camera);
+        };
+        animate();
+
+            // 鼠標点击添加一个 确定点击位置  --  锚点 ---待配置 热点图片
+    const onDocumentMouseDown = event => {
+     /**
+     * 1、 camera.target 当前相机所正视的世界空间方向 赋值给 vector
+     * 2、根据配置页面 展示的宽高值 设置XYZ 轴
+     * 3、 vector.unproject(camera) 在投影中使用的摄像机。
+     * 4、 使用 光线投射Raycaster 计算鼠标在三维坐标中点击的坐标位置
+     *     这将创建一个新的raycaster对象。
+     *        let raycaster = new THREE.Raycaster(
+     *            camera.position,
+     *            vector.sub(camera.position).normalize() //初始化
+     *        )
+     *      Raycaster( origin : Vector3, direction : Vector3, near : Float, far : Float ) {
+            origin —— 光线投射的原点向量。
+            direction —— 向射线提供方向的方向向量，应当被标准化。
+            near —— 返回的所有结果比near远。near不能为负值，其默认值为0。
+            far —— 返回的所有结果都比far近。far不能小于near，其默认值为Infinity（正无穷。）
+     * 
+    */
+        isUserInteracting = true
+        if (forType === 'Equirectangular') {
+            event.preventDefault()
+            // let vector = new THREE.Vector3() //三维坐标对象
+            let vector = camera.target
+
+            console.log(vector, 'vector预计是坐标轴的位置')
+            vector.set(
+                ((event.clientX - 248) / (window.innerWidth - 248)) * 2 - 1,
+                -((event.clientY - 32) / (window.innerHeight - 32)) * 2 + 1,
+                0.5
+            )
+            // 在投影中使用的摄像机。
+            vector.unproject(camera)
+            // 这将创建一个新的raycaster对象。
+            let raycaster = new THREE.Raycaster(
+                camera.position,
+                vector.sub(camera.position).normalize() //初始化 光线投射的原点向量
+            )
+            raycaster.camera = camera
+            // 得到 点击的坐标 或 点击的标注点 
+            // intersects 每项中的object 的type 可以分辨 点击的是标注还是 场景图
+            let intersects = raycaster.intersectObjects(scene.children)
+            //如果绘制热点属于激活状态
+            // 此处需要判断 是否有两个坐标为0
+              
+            let isOnShaft = []
+            Object.keys(intersects[0].point).forEach(v => {
+                if (intersects[0].point[v] === 0) {
+                    isOnShaft.push(1)
+                }
+            })
+   //---------------------------添加標注-----------------------------------------
+   				// 打开添加热点 true    坐标轴中是否存在两坐标为0  打开删除热点开关 为fasle
+            if (refIsHotspot.current && isOnShaft.length < 2 && !refIsDelete.current) {
+            	// 绘制热点 
+            	//	绘制图片有两种方式
+            	//	一种直接引入 new img	
+            	//	一种使用 canvas  
+            	/**
+            		 	let canvas = document.createElement('canvas')
+		                canvas.style.backgroundColor = 'rgba(255,255,255,0)'
+		                let context = canvas.getContext('2d')
+		                canvas.width = 128
+		                canvas.height = 128
+		                 context.drawImage(img, 0, 0, 128, 128)
+           		*/
+                let img = new Image()
+                img.src = hotspot //（ 标注使用的图片） 也可以使用canvas 绘制文字 
+                img.onload = function () {
+                    let texture = new THREE.Texture(img)
+                    texture.needsUpdate = true
+                    texture.minFilter = THREE.LinearFilter
+                    var spriteMaterial = new THREE.SpriteMaterial({
+                        map: texture,
+                        transparent: false,
+                    })
+                     // 创建一个 sprite  物体
+                    var sprite = new THREE.Sprite(spriteMaterial)
+                    sprite.scale.set(30, 30, 30)
+                    let rate = 0.8
+                    var endV = new THREE.Vector3(
+                        intersects[0].point.x * rate,
+                        intersects[0].point.y * rate,
+                        intersects[0].point.z * rate
+                    )
+                    sprite.position.copy(endV)
+                    scene.add(sprite)
+                    // addHotspot(intersects[0].point) //同步到全局数据
+                }
+                //移除热点
+            } else {
+                if (!refIsDelete.current) return
+                if (intersects.length > 0) {
+                    const target = intersects[0]
+                    console.log(!refIsHotspot.current, refIsDelete.current, '删除打印结果')
+                    try {
+                        if (target.object && target.object.type.length > 0) {
+                            if (target.object.type.toLowerCase() === 'sprite') {
+                                scene.remove(target.object)
+                            }
+                        }
+                    } catch (e) {
+                        console.log(e)
+                    }
+                }
+            }
+        }
+    }
+
+    
+    //绘制多个跳转热点
+    const drawJumpHotSpots = (variable, newsrc) => {
+        console.log(variable, '锚点坐标轴数据 参数')
+        variable.forEach(item => {
+            let position = item.point
+            // TextureLoader 异步记载图片
+            var texture = new THREE.TextureLoader().load(gif)
+            // SpriteMaterial 材质
+            var spriteMaterial = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+            })
+            // 物体 Sprite
+            var sprite = new THREE.Sprite(spriteMaterial)
+            sprite.scale.set(30, 30, 30)
+            /**
+             * 此处添加自定义属性 不能跟原有属性重复避免报错
+             * name: 添加锚点名称
+             * ids: 唯一ID
+             * iconUrl: 图标
+             */
+            sprite.name = item.name
+            sprite.ids = item.id
+            sprite.iconUrl = ''
+            let rate = 0.8
+            var endV = new THREE.Vector3(position.x * rate, position.y * rate, position.z * rate)
+            sprite.position.copy(endV)
+            scene.add(sprite)
+        })
+    }
+
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <!-- <script type="module" charset="UTF-8" src="/libs/three/src/Three.js"></script> -->
+    <style>
+        body {
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        #output {
+            width: 100vw;
+            height: 90vh;
+            background-color: aqua;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="output">
+    </div>
+    <span id="tip" style="position: absolute;color:red;top:0;left:0;">点击右键添加标注</span>
+    <script type="importmap">
+		{
+			"imports": {
+				"three": "/libs/three/build/three.module.js"
+			}
+		}
+	</script>
+    <script type="module">
+        // import * as THREE from "/libs/three/build/three.module.js"
+        import * as THREE from "three"
+        import { OrbitControls } from "/libs/three/examples/jsm/controls/OrbitControls.js"
+        import { CSS3DRenderer } from "/libs/three/examples/jsm/renderers/CSS3DRenderer.js"
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 0.1;
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,//抗锯齿
+        });
+        // const renderer = new CSS3DRenderer();
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const container = document.querySelector("#output");
+
+        const render = () => {
+            renderer.render(scene, camera);
+            requestAnimationFrame(render);
+        }
+        // function animate() {
+
+        //     cube.rotation.x += 0.01;
+        //     cube.rotation.y += 0.01;
+        //     renderer.render(scene, camera);
+        //     requestAnimationFrame(animate);
+        // }
+
+
+        //正方体
+        // const geometry = new THREE.BoxGeometry(100, 100, 100);
+        // // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        // // const cube = new THREE.Mesh(geometry, material);
+        // // scene.add(cube);
+
+        // var boxMaterials = [];
+        // for (let index = 0; index < 6; index++) {
+        //     let texture = new THREE.TextureLoader().load('/static/bg-content.jpg');
+        //     boxMaterials.push(new THREE.MeshBasicMaterial({map:texture}));
+        // }
+        // const cube = new THREE.Mesh(geometry, boxMaterials);
+        // cube.geometry.scale(1,1,-1);
+        // scene.add(cube);
+
+        //球体
+        const geometry = new THREE.SphereGeometry(70, 100, 100);
+        const texture = new THREE.TextureLoader().load('/static/qj.jpg');
+        const material = new THREE.MeshBasicMaterial({ map: texture })
+        const cube = new THREE.Mesh(geometry, material);
+        cube.geometry.scale(1, 1, -1);
+        scene.add(cube);
+        // const loader = new RGBELoader();
+        // loader.load("/static/qj.jpg", (texture) => {
+        //     const material = new THREE.MeshBasicMaterial({ map: texture })
+        //     const cube = new THREE.Mesh(geometry, material);
+        //     cube.geometry.scale(1, 1, -1);
+        //     scene.add(cube);
+        // })
+
+
+        let tags = []
+        let doc = document
+        let tagObject = new THREE.Object3D()
+        let screenVector = new THREE.Vector3()
+        let raycaster = new THREE.Raycaster()
+        let vector = new THREE.Vector3();
+        let activePoint = null
+        let div = document.getElementById('tip')
+        /**
+
+
+
+        /**
+     * 鼠标移动触发
+     **/
+        function onMouseMove(event) {
+            // 屏幕坐标转标准设备坐标
+            vector.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1, 0);
+            // 将标准设备坐标转为世界坐标
+            vector.unproject(camera);
+
+            raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+
+            let intersects = raycaster.intersectObjects([cube]);
+
+            if (intersects.length > 0) {
+                activePoint = intersects[0].point;
+                let point = toScreenPosition({ point: activePoint })
+                div.style.left = point.x + 'px';
+                div.style.top = point.y + 20 + 'px';
+            }
+        }
+
+        /**
+         * 鼠标点击触发
+         **/
+        function onMouseDown(event) {
+            if (event.buttons === 2) {
+                console.log(JSON.stringify(activePoint))  // 传给后台的参数
+                sign(activePoint)
+            }
+        }
+
+        /**
+         * 标记
+         **/
+        function sign(position, title) {
+            let tagMesh = new THREE.Mesh(new THREE.SphereGeometry(1), new THREE.MeshBasicMaterial({ color: '#ffff00' }));
+            tagMesh.position.copy(position);
+            tagObject.add(tagMesh);
+
+            let tagElement = doc.createElement("div");
+            tagElement.innerHTML = `<span>${!title ? '标记' + (tags.length + 1) : title}</span>`;
+            tagElement.style.background = "red";
+            tagElement.style.position = "absolute";
+
+            tagMesh.updateTag = function () {
+                // 超出相机视野则隐藏
+                if (isOffScreen(tagMesh, camera)) {
+                    tagElement.style.display = "none";
+                } else {
+                    let position = toScreenPosition({ obj: tagMesh });
+                    tagElement.style.display = "block";
+                    tagElement.style.left = `${position.x - tagElement.offsetWidth / 2}px`;
+                    tagElement.style.top = `${position.y + 12}px`;
+                }
+            }
+            tagMesh.updateTag();
+            container.appendChild(tagElement);
+            tags.push(tagMesh);
+        }
+
+        /**
+         * 世界坐标转屏幕坐标（3D -> 2D）
+         **/
+        function toScreenPosition({ obj = null, point = null }) {
+            point ? screenVector.set(...point) : screenVector.set();
+            // 屏幕坐标系中心
+            let widthHalf = renderer.getContext().canvas.width / 2;
+            let heightHalf = renderer.getContext().canvas.height / 2;
+
+            if (obj) {
+                // 更新物体及其后代的全局变换
+                obj.updateMatrixWorld();
+                // 提取位置相关的分量
+                screenVector.setFromMatrixPosition(obj.matrixWorld);
+            }
+
+            // 世界坐标转标准设备坐标。范围[-1,1]
+            screenVector.project(camera)
+
+            //标准设备坐标转屏幕坐标（2D）
+            screenVector.x = screenVector.x * widthHalf + widthHalf;
+            screenVector.y = -screenVector.y * heightHalf + heightHalf;
+
+            return {
+                x: screenVector.x,
+                y: screenVector.y
+            };
+        }
+
+        /**
+         * 判断是否超出相机视野
+         **/
+        function isOffScreen(obj) {
+            let frustum = new THREE.Frustum(); //Frustum用来确定相机的可视区域
+            let cameraViewProjectionMatrix = new THREE.Matrix4();
+            cameraViewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); //获取相机的法线
+            frustum.setFromProjectionMatrix(cameraViewProjectionMatrix); //设置frustum沿着相机法线方向
+
+            return !frustum.intersectsObject(obj);
+        }
+
+        container.addEventListener("pointerdown", onMouseDown, false);
+        container.addEventListener("pointermove", onMouseMove, false);
+
+        window.onload = () => {
+            container.appendChild(renderer.domElement);
+            //添加控制器
+            const controls = new OrbitControls(camera, container);
+            controls.enableDamping = true;
+            controls.update();
+            tags.forEach(function (tagMesh) {
+                tagMesh.updateTag();
+            });
+            // const points = [];
+            // points.push(new THREE.Vector3(70, 0, 0));
+            // points.push(new THREE.Vector3(1, 2, 10));
+            // points.push(new THREE.Vector3(-2, 1, 3));
+
+            // const linegeometry = new THREE.BufferGeometry().setFromPoints(points);
+            // const linematerial = new THREE.LineBasicMaterial({ color: 0x0000ff });
+            // const line = new THREE.Line(linegeometry, linematerial);
+            // scene.add(line);
+            // animate();
+            render();
+        }
+    </script>
+</body>
+
+</html>
